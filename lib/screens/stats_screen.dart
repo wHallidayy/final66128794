@@ -2,8 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/report.dart';
+import '../models/violation.dart';
+import '../models/station.dart';
 import '../helpers/database_helper.dart';
-import '../helpers/firestore_helper.dart';
 
 class StatsScreen extends StatefulWidget {
   @override
@@ -12,30 +13,38 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   List<Report> reports = [];
+  Map<int, Violation> violations = {};
+  Map<int, Station> stations = {};
 
-  final _db = FirestoreHelper();
+  final _db = DatabaseHelper();
 
   @override
   void initState() {
     super.initState();
-    _loadReports();
+    _loadData();
   }
 
-  Future<void> _loadReports() async {
-    final data = await _db.getReports();
-    setState(() => reports = data);
+  Future<void> _loadData() async {
+    final reportsData = await _db.getReports();
+    final violationsData = await _db.getViolations();
+    final stationsData = await _db.getStations();
+
+    violations = {for (var v in violationsData) v.typeId!: v};
+    stations = {for (var s in stationsData) s.stationId!: s};
+
+    setState(() => reports = reportsData);
   }
 
-  String _getSeverity(int typeId) =>
-      MockData.getViolationById(typeId)?.severity ?? 'Low';
-  String _getViolationName(int typeId) =>
-      MockData.getViolationById(typeId)?.typeName ?? '-';
-  String _getZone(int stationId) =>
-      MockData.getStationById(stationId)?.zone ?? '-';
+  String _getSeverity(int typeId) => violations[typeId]?.severity ?? 'Low';
+  String _getViolationName(int typeId) => violations[typeId]?.typeName ?? '-';
+  String _getZone(int stationId) => stations[stationId]?.zone ?? '-';
 
-  int get highCount => reports.where((r) => _getSeverity(r.typeId) == 'High').length;
-  int get medCount => reports.where((r) => _getSeverity(r.typeId) == 'Medium').length;
-  int get lowCount => reports.where((r) => _getSeverity(r.typeId) == 'Low').length;
+  int get highCount =>
+      reports.where((r) => _getSeverity(r.typeId) == 'High').length;
+  int get medCount =>
+      reports.where((r) => _getSeverity(r.typeId) == 'Medium').length;
+  int get lowCount =>
+      reports.where((r) => _getSeverity(r.typeId) == 'Low').length;
 
   /// Group reports by violation typeName
   Map<String, int> get _byViolation {
@@ -56,7 +65,8 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     // Sort by zone name
     final sorted = Map.fromEntries(
-        map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+      map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
     return sorted;
   }
 
@@ -70,9 +80,14 @@ class _StatsScreenState extends State<StatsScreen> {
             color: AppColors.red,
             child: const Row(
               children: [
-                Text('สถิติการรายงาน',
-                    style: TextStyle(color: Colors.white, fontSize: 16,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  'สถิติการรายงาน',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -98,29 +113,54 @@ class _StatsScreenState extends State<StatsScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white, borderRadius: BorderRadius.circular(10),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
-                            blurRadius: 8, offset: const Offset(0, 2))]),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: Row(
                         children: [
-                          const Icon(CupertinoIcons.chart_bar_alt_fill,
-                              size: 40, color: AppColors.red),
+                          const Icon(
+                            CupertinoIcons.chart_bar_alt_fill,
+                            size: 40,
+                            color: AppColors.red,
+                          ),
                           const SizedBox(width: 16),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('รายงานทั้งหมดวันนี้',
-                                  style: TextStyle(fontSize: 12, color: AppColors.grey500)),
+                              const Text(
+                                'รายงานทั้งหมดวันนี้',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.grey500,
+                                ),
+                              ),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.baseline,
                                 textBaseline: TextBaseline.alphabetic,
                                 children: [
-                                  Text('${reports.length}',
-                                      style: const TextStyle(fontSize: 32,
-                                          fontWeight: FontWeight.w800, color: AppColors.grey900)),
+                                  Text(
+                                    '${reports.length}',
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.grey900,
+                                    ),
+                                  ),
                                   const SizedBox(width: 4),
-                                  const Text('เหตุการณ์',
-                                      style: TextStyle(fontSize: 14, color: AppColors.grey500)),
+                                  const Text(
+                                    'เหตุการณ์',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.grey500,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -162,17 +202,37 @@ class _StatsScreenState extends State<StatsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(10),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
-              blurRadius: 8, offset: const Offset(0, 2))]),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Column(
           children: [
-            Text(num, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color)),
+            Text(
+              num,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
             const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: AppColors.grey500)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.grey500,
+                  ),
+                ),
                 const SizedBox(width: 4),
                 Icon(CupertinoIcons.circle_fill, size: 8, color: color),
               ],
@@ -194,66 +254,111 @@ class _StatsScreenState extends State<StatsScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
-            blurRadius: 8, offset: const Offset(0, 2))]),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             initiallyExpanded: true,
-            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             leading: Icon(icon, size: 16, color: AppColors.grey500),
-            title: Text(title.toUpperCase(),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8, color: AppColors.grey500)),
+            title: Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: AppColors.grey500,
+              ),
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                      color: AppColors.grey100, borderRadius: BorderRadius.circular(99)),
-                  child: Text('${data.length} รายการ',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                          color: AppColors.grey500)),
+                    color: AppColors.grey100,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '${data.length} รายการ',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.grey500,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(CupertinoIcons.chevron_down, size: 14, color: AppColors.grey500),
+                const Icon(
+                  CupertinoIcons.chevron_down,
+                  size: 14,
+                  color: AppColors.grey500,
+                ),
               ],
             ),
-            children: data.entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(e.key,
-                            style: const TextStyle(fontSize: 13),
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(suffix != null ? '${e.value} $suffix' : '${e.value}',
-                          style: TextStyle(fontWeight: FontWeight.w700,
-                              color: suffix != null ? AppColors.grey900 : color)),
-                    ],
+            children: data.entries
+                .map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                e.key,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              suffix != null
+                                  ? '${e.value} $suffix'
+                                  : '${e.value}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: suffix != null
+                                    ? AppColors.grey900
+                                    : color,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: maxVal > 0 ? e.value / maxVal : 0,
+                            backgroundColor: AppColors.grey200,
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
+                            minHeight: 6,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: maxVal > 0 ? e.value / maxVal : 0,
-                      backgroundColor: AppColors.grey200,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                      minHeight: 6),
-                  ),
-                ],
-              ),
-            )).toList(),
+                )
+                .toList(),
           ),
         ),
       ),
@@ -264,15 +369,24 @@ class _StatsScreenState extends State<StatsScreen> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.grey200, width: 1.5))),
+        border: Border(top: BorderSide(color: AppColors.grey200, width: 1.5)),
+      ),
       child: SafeArea(
         top: false,
         child: Row(
           children: [
-            _navItem(CupertinoIcons.house_fill, 'หน้าหลัก', false,
-                () => Navigator.pushReplacementNamed(context, '/home')),
-            _navItem(CupertinoIcons.list_bullet, 'เหตุการณ์', false,
-                () => Navigator.pushReplacementNamed(context, '/all_events')),
+            _navItem(
+              CupertinoIcons.house_fill,
+              'หน้าหลัก',
+              false,
+              () => Navigator.pushReplacementNamed(context, '/home'),
+            ),
+            _navItem(
+              CupertinoIcons.list_bullet,
+              'เหตุการณ์',
+              false,
+              () => Navigator.pushReplacementNamed(context, '/all_events'),
+            ),
             _navItem(CupertinoIcons.chart_bar_fill, 'สถิติ', true, () {}),
           ],
         ),
@@ -280,7 +394,12 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool active, VoidCallback onTap) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool active,
+    VoidCallback onTap,
+  ) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -289,10 +408,19 @@ class _StatsScreenState extends State<StatsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 22, color: active ? AppColors.red : AppColors.grey500),
+              Icon(
+                icon,
+                size: 22,
+                color: active ? AppColors.red : AppColors.grey500,
+              ),
               const SizedBox(height: 3),
-              Text(label, style: TextStyle(fontSize: 10,
-                  color: active ? AppColors.red : AppColors.grey500)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: active ? AppColors.red : AppColors.grey500,
+                ),
+              ),
             ],
           ),
         ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/station.dart';
 import '../models/violation.dart';
@@ -10,6 +11,13 @@ class FirestoreHelper {
   FirestoreHelper._internal();
 
   final _db = FirebaseFirestore.instance;
+
+  StreamSubscription? _reportsSubscription;
+  Function(List<Report>)? _onReportsChanged;
+
+  CollectionReference get stations => _stations;
+  CollectionReference get violations => _violations;
+  CollectionReference get reports => _reports;
 
   CollectionReference get _stations => _db.collection('polling_station');
   CollectionReference get _violations => _db.collection('violation_type');
@@ -44,8 +52,9 @@ class FirestoreHelper {
 
   Future<List<Station>> getStations() async {
     final snap = await _stations.orderBy('station_id').get();
-    return snap.docs.map((d) =>
-        Station.fromMap(d.data() as Map<String, dynamic>)).toList();
+    return snap.docs
+        .map((d) => Station.fromMap(d.data() as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Station?> getStationById(int stationId) async {
@@ -58,8 +67,9 @@ class FirestoreHelper {
 
   Future<List<Violation>> getViolations() async {
     final snap = await _violations.orderBy('type_id').get();
-    return snap.docs.map((d) =>
-        Violation.fromMap(d.data() as Map<String, dynamic>)).toList();
+    return snap.docs
+        .map((d) => Violation.fromMap(d.data() as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Violation?> getViolationById(int typeId) async {
@@ -72,15 +82,22 @@ class FirestoreHelper {
 
   Future<List<Report>> getReports() async {
     final snap = await _reports.orderBy('report_id', descending: true).get();
-    return snap.docs.map((d) =>
-        Report.fromMap(d.data() as Map<String, dynamic>)).toList();
+    return snap.docs
+        .map((d) => Report.fromMap(d.data() as Map<String, dynamic>))
+        .toList();
   }
 
   Future<String> insertReport(Report report) async {
     // Auto-generate report_id
-    final snap = await _reports.orderBy('report_id', descending: true).limit(1).get();
-    final nextId = snap.docs.isEmpty ? 1
-        : ((snap.docs.first.data() as Map<String, dynamic>)['report_id'] as int) + 1;
+    final snap = await _reports
+        .orderBy('report_id', descending: true)
+        .limit(1)
+        .get();
+    final nextId = snap.docs.isEmpty
+        ? 1
+        : ((snap.docs.first.data() as Map<String, dynamic>)['report_id']
+                  as int) +
+              1;
 
     final map = report.toMap();
     map['report_id'] = nextId;
@@ -92,5 +109,25 @@ class FirestoreHelper {
 
   Future<void> deleteReport(int reportId) async {
     await _reports.doc('$reportId').delete();
+  }
+
+  void listenToReports(Function(List<Report>) onReportsChanged) {
+    _onReportsChanged = onReportsChanged;
+    _reportsSubscription?.cancel();
+    _reportsSubscription = _reports
+        .orderBy('report_id', descending: true)
+        .snapshots()
+        .listen((snap) {
+          final reports = snap.docs
+              .map((d) => Report.fromMap(d.data() as Map<String, dynamic>))
+              .toList();
+          _onReportsChanged?.call(reports);
+        });
+  }
+
+  void stopListeningToReports() {
+    _reportsSubscription?.cancel();
+    _reportsSubscription = null;
+    _onReportsChanged = null;
   }
 }
