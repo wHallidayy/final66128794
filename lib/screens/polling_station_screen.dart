@@ -1,8 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import '../models/report.dart';
-import '../models/violation.dart';
 import '../models/station.dart';
 import '../helpers/database_helper.dart';
 
@@ -12,62 +10,39 @@ class PollingStationScreen extends StatefulWidget {
 }
 
 class _PollingStationScreenState extends State<PollingStationScreen> {
-  List<Report> reports = [];
-  Map<int, Violation> violations = {};
-  Map<int, Station> stations = {};
+  List<Station> stations = [];
+  List<Station> filteredStations = [];
+  final _searchController = TextEditingController();
 
   final _db = DatabaseHelper();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadStations();
   }
 
-  Future<void> _loadData() async {
-    final reportsData = await _db.getReports();
-    final violationsData = await _db.getViolations();
+  Future<void> _loadStations() async {
     final stationsData = await _db.getStations();
-
-    violations = {for (var v in violationsData) v.typeId!: v};
-    stations = {for (var s in stationsData) s.stationId!: s};
-
-    setState(() => reports = reportsData);
+    setState(() {
+      stations = stationsData;
+      filteredStations = stationsData;
+    });
   }
 
-  String _getSeverity(int typeId) => violations[typeId]?.severity ?? 'Low';
-  String _getViolationName(int typeId) => violations[typeId]?.typeName ?? '-';
-  String _getZone(int stationId) => stations[stationId]?.zone ?? '-';
-
-  int get highCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'High').length;
-  int get medCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'Medium').length;
-  int get lowCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'Low').length;
-
-  /// Group reports by violation typeName
-  Map<String, int> get _byViolation {
-    final map = <String, int>{};
-    for (final r in reports) {
-      final name = _getViolationName(r.typeId);
-      map[name] = (map[name] ?? 0) + 1;
-    }
-    return map;
-  }
-
-  /// Group reports by zone
-  Map<String, int> get _byZone {
-    final map = <String, int>{};
-    for (final r in reports) {
-      final zone = _getZone(r.stationId);
-      map[zone] = (map[zone] ?? 0) + 1;
-    }
-    // Sort by zone name
-    final sorted = Map.fromEntries(
-      map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
-    return sorted;
+  void _filterStations(String query) {
+    setState(() {
+      filteredStations = query.isEmpty
+          ? stations
+          : stations
+                .where(
+                  (s) =>
+                      s.stationName.contains(query) ||
+                      s.zone.contains(query) ||
+                      s.province.contains(query),
+                )
+                .toList();
+    });
   }
 
   @override
@@ -80,114 +55,66 @@ class _PollingStationScreenState extends State<PollingStationScreen> {
             color: AppColors.red,
             child: const Row(
               children: [
-                Text(
-                  'หน่วยเลือกตั้ง',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    'หน่วยเลือกตั้ง',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            color: Colors.white,
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterStations,
+              decoration: InputDecoration(
+                hintText: 'ค้นหาหน่วยเลือกตั้ง...',
+                hintStyle: const TextStyle(fontSize: 14),
+                prefixIcon: const Icon(CupertinoIcons.search, size: 18),
+                filled: true,
+                fillColor: AppColors.grey100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.grey300,
+                    width: 1.5,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.grey300,
+                    width: 1.5,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.red,
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: Container(
               color: AppColors.grey100,
-              child: SingleChildScrollView(
+              child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    // Severity stat cards
-                    Row(
-                      children: [
-                        _statCard('$highCount', 'ร้ายแรง', AppColors.red),
-                        const SizedBox(width: 10),
-                        _statCard('$medCount', 'ปานกลาง', AppColors.orange),
-                        const SizedBox(width: 10),
-                        _statCard('$lowCount', 'เล็กน้อย', AppColors.green),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // Total card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            CupertinoIcons.chart_bar_alt_fill,
-                            size: 40,
-                            color: AppColors.red,
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'รายงานทั้งหมดวันนี้',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.grey500,
-                                ),
-                              ),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    '${reports.length}',
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.grey900,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'เหตุการณ์',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.grey500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    // Accordion: By Violation Type
-                    _accordionCard(
-                      icon: CupertinoIcons.exclamationmark_triangle_fill,
-                      title: 'แบ่งตามประเภทความผิด',
-                      data: _byViolation,
-                      color: AppColors.red,
-                    ),
-                    const SizedBox(height: 14),
-                    // Accordion: By Zone
-                    _accordionCard(
-                      icon: CupertinoIcons.map_fill,
-                      title: 'แบ่งตามเขต',
-                      data: _byZone,
-                      color: AppColors.orange,
-                      suffix: 'เหตุการณ์',
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                ),
+                itemCount: filteredStations.length,
+                itemBuilder: (ctx, i) => _buildStationCard(filteredStations[i]),
               ),
             ),
           ),
@@ -197,169 +124,96 @@ class _PollingStationScreenState extends State<PollingStationScreen> {
     );
   }
 
-  Widget _statCard(String num, String label, Color color) {
-    return Expanded(
+  Widget _buildStationCard(Station station) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/polling_station_detail',
+        arguments: station,
+      ),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 12,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Text(
-              num,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: color,
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.redLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                CupertinoIcons.location_solid,
+                color: AppColors.red,
+                size: 20,
               ),
             ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.grey500,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    station.stationName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.grey900,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(CupertinoIcons.circle_fill, size: 8, color: color),
-              ],
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(
+                        CupertinoIcons.square_list,
+                        size: 11,
+                        color: AppColors.grey500,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        station.zone,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.grey500,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        CupertinoIcons.building_2_fill,
+                        size: 11,
+                        color: AppColors.grey500,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        station.province,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.grey500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              CupertinoIcons.chevron_right,
+              color: AppColors.grey300,
+              size: 16,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _accordionCard({
-    required IconData icon,
-    required String title,
-    required Map<String, int> data,
-    required Color color,
-    String? suffix,
-  }) {
-    final maxVal = data.values.fold<int>(1, (p, v) => v > p ? v : p);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            leading: Icon(icon, size: 16, color: AppColors.grey500),
-            title: Text(
-              title.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-                color: AppColors.grey500,
-              ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.grey100,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    '${data.length} รายการ',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.grey500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  CupertinoIcons.chevron_down,
-                  size: 14,
-                  color: AppColors.grey500,
-                ),
-              ],
-            ),
-            children: data.entries
-                .map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                e.key,
-                                style: const TextStyle(fontSize: 13),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              suffix != null
-                                  ? '${e.value} $suffix'
-                                  : '${e.value}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: suffix != null
-                                    ? AppColors.grey900
-                                    : color,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: maxVal > 0 ? e.value / maxVal : 0,
-                            backgroundColor: AppColors.grey200,
-                            valueColor: AlwaysStoppedAnimation<Color>(color),
-                            minHeight: 6,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
         ),
       ),
     );
@@ -393,7 +247,12 @@ class _PollingStationScreenState extends State<PollingStationScreen> {
               false,
               () => Navigator.pushReplacementNamed(context, '/all_incident'),
             ),
-            _navItem(CupertinoIcons.location_solid, 'หน่วยเลือกตั้ง', true, () {}),
+            _navItem(
+              CupertinoIcons.location_solid,
+              'หน่วยเลือกตั้ง',
+              true,
+              () {},
+            ),
           ],
         ),
       ),

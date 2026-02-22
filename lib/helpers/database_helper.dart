@@ -189,4 +189,34 @@ class DatabaseHelper {
     ''');
     return result.first['count'] as int;
   }
+
+  Future<List<Report>> getFilteredReports({
+    String? searchQuery,
+    String? severity,
+  }) async {
+    final db = await database;
+    String query = '''
+      SELECT ir.* FROM incident_report ir
+      INNER JOIN violation_type vt ON ir.type_id = vt.type_id
+      WHERE 1=1
+    ''';
+    List<dynamic> args = [];
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      query += '''
+        AND (vt.type_name LIKE ? OR ir.reporter_name LIKE ? OR ir.description LIKE ?)
+      ''';
+      args.addAll(['%$searchQuery%', '%$searchQuery%', '%$searchQuery%']);
+    }
+
+    if (severity != null && severity.isNotEmpty) {
+      query += ' AND vt.severity = ?';
+      args.add(severity);
+    }
+
+    query += ' ORDER BY ir.report_id DESC';
+
+    final maps = await db.rawQuery(query, args);
+    return maps.map((m) => Report.fromMap(m)).toList();
+  }
 }

@@ -302,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          _buildBottomNav(),
+          _buildBottomNav()
         ],
       ),
     );

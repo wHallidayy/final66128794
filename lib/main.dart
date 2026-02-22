@@ -13,6 +13,7 @@ import 'screens/report_form_screen.dart';
 import 'screens/report_success_screen.dart';
 import 'screens/report_detail_screen.dart';
 import 'screens/polling_station_screen.dart';
+import 'screens/polling_station_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,7 @@ class MainApp extends StatelessWidget {
         '/report_success': (context) => ReportSuccessScreen(),
         '/report_detail': (context) => ReportDetailScreen(),
         '/polling_station': (context) => PollingStationScreen(),
+        '/polling_station_detail': (contex) => PollingStationDetailScreen(),
       },
     );
   }

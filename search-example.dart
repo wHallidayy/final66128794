@@ -141,53 +141,60 @@ class _AllIncidentScreenState extends State<AllIncidentScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             color: Colors.white,
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterReports,
+              decoration: InputDecoration(
+                hintText: 'ค้นหาเหตุการณ์...',
+                hintStyle: const TextStyle(fontSize: 14),
+                prefixIcon: const Icon(CupertinoIcons.search, size: 18),
+                filled: true,
+                fillColor: AppColors.grey100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.grey300,
+                    width: 1.5,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.grey300,
+                    width: 1.5,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(99),
+                  borderSide: const BorderSide(
+                    color: AppColors.red,
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
+            ),
+
+            // lib/screens/all_incident_screen.dart มี drop Dropdown ให้เลือกกรองตาม "ความรุนแรง (Severity)" (High, Medium, Low) และ ปรับปรุง _filterReports ใช้ sqlite query โดย logic จะอยู๋ใน helper
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _filterReports,
-                    decoration: InputDecoration(
-                      hintText: 'ค้นหาเหตุการณ์...',
-                      hintStyle: const TextStyle(fontSize: 14),
-                      prefixIcon: const Icon(CupertinoIcons.search, size: 18),
-                      filled: true,
-                      fillColor: AppColors.grey100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(99),
-                        borderSide: const BorderSide(
-                          color: AppColors.grey300,
-                          width: 1.5,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(99),
-                        borderSide: const BorderSide(
-                          color: AppColors.grey300,
-                          width: 1.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(99),
-                        borderSide: const BorderSide(
-                          color: AppColors.red,
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                    ),
-                  ),
+                const Text(
+                  'ความรุนแรง: ',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: AppColors.grey100,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.grey300, width: 1),
+                    border: Border.all(color: AppColors.grey300, width: 1.5),
                   ),
                   child: DropdownButton<String>(
                     value: _selectedSeverity,
@@ -204,16 +211,6 @@ class _AllIncidentScreenState extends State<AllIncidentScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              color: AppColors.grey100,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: filteredReports.length,
-                itemBuilder: (ctx, i) => _buildReportCard(filteredReports[i]),
-              ),
             ),
           ),
           _buildBottomNav(),
