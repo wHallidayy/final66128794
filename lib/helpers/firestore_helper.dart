@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/station.dart';
 import '../models/violation.dart';
 import '../models/report.dart';
-import 'mock_data.dart';
+import 'SeedData.dart';
 
 class FirestoreHelper {
   static final FirestoreHelper _instance = FirestoreHelper._internal();
@@ -33,15 +33,15 @@ class FirestoreHelper {
     final batch = _db.batch();
 
     // Seed stations
-    for (final s in MockData.getStations()) {
+    for (final s in SeedData.getStations()) {
       batch.set(_stations.doc('${s.stationId}'), s.toMap());
     }
     // Seed violations
-    for (final v in MockData.getViolations()) {
+    for (final v in SeedData.getViolations()) {
       batch.set(_violations.doc('${v.typeId}'), v.toMap());
     }
     // Seed reports
-    for (final r in MockData.getReports()) {
+    for (final r in SeedData.getReports()) {
       batch.set(_reports.doc('${r.reportId}'), r.toMap());
     }
 

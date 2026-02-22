@@ -5,6 +5,7 @@ import '../models/report.dart';
 import '../models/violation.dart';
 import '../models/station.dart';
 import '../helpers/database_helper.dart';
+import '../helpers/firestore_helper.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   @override
@@ -18,6 +19,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Station? station;
 
   final _db = DatabaseHelper();
+  final _firestore = FirestoreHelper();
 
   @override
   void didChangeDependencies() {
@@ -40,16 +42,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   String _getViolationName(int typeId) => violation?.typeName ?? '-';
-  String _getSeverity(int typeId) => violation?.severity ?? 'Low';
   String _getStationName(int stationId) => station?.stationName ?? '-';
   String _getZone(int stationId) => station?.zone ?? '-';
   String _getProvince(int stationId) => station?.province ?? '-';
-
-  Color _sevColor(String s) => s == 'High'
-      ? AppColors.red
-      : s == 'Medium'
-      ? AppColors.orange
-      : AppColors.green;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +55,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
     }
     final r = report!;
-    final sev = _getSeverity(r.typeId);
     return Scaffold(
       body: Column(
         children: [
@@ -103,7 +97,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     child: const Icon(
-                      CupertinoIcons.ellipsis,
+                      CupertinoIcons.delete_solid,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -207,7 +201,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _violationCard(Report r) {
-    final sev = _getSeverity(r.typeId);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -248,32 +241,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ],
             ),
-          ),
-          Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.redLight,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  sev == 'High'
-                      ? 'HIGH'
-                      : sev == 'Medium'
-                      ? 'MED'
-                      : 'LOW',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _sevColor(sev),
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -469,32 +436,31 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ตัวเลือก'),
+        title: const Text('ลบรายงาน'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(
-                CupertinoIcons.pencil,
-                color: AppColors.grey700,
-              ),
-              title: const Text('แก้ไข'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(
-                CupertinoIcons.delete_solid,
-                color: AppColors.red,
-              ),
-              title: const Text('ลบ'),
-              onTap: () => Navigator.pop(context),
-            ),
+            const Text('คุณต้องการลบรายงานนี้หรือไม่?'),
+            const SizedBox(height: 12),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (report != null && report!.reportId != null) {
+                await _db.deleteReport(report!.reportId!);
+                await _firestore.deleteReport(report!.reportId!);
+                if (mounted) {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                }
+              }
+            },
+            child: const Text('ลบ'),
           ),
         ],
       ),

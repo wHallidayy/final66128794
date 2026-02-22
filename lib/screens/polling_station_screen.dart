@@ -6,12 +6,12 @@ import '../models/violation.dart';
 import '../models/station.dart';
 import '../helpers/database_helper.dart';
 
-class StatsScreen extends StatefulWidget {
+class PollingStationScreen extends StatefulWidget {
   @override
-  _StatsScreenState createState() => _StatsScreenState();
+  _PollingStationScreenState createState() => _PollingStationScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _PollingStationScreenState extends State<PollingStationScreen> {
   List<Report> reports = [];
   Map<int, Violation> violations = {};
   Map<int, Station> stations = {};
@@ -81,7 +81,7 @@ class _StatsScreenState extends State<StatsScreen> {
             child: const Row(
               children: [
                 Text(
-                  'สถิติการรายงาน',
+                  'หน่วยเลือกตั้ง',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -382,12 +382,18 @@ class _StatsScreenState extends State<StatsScreen> {
               () => Navigator.pushReplacementNamed(context, '/home'),
             ),
             _navItem(
+              CupertinoIcons.add,
+              'รายงานเหตุการณ์',
+              false,
+              () => Navigator.pushNamed(context, '/select_station'),
+            ),
+            _navItem(
               CupertinoIcons.list_bullet,
               'เหตุการณ์',
               false,
-              () => Navigator.pushReplacementNamed(context, '/all_events'),
+              () => Navigator.pushReplacementNamed(context, '/all_incident'),
             ),
-            _navItem(CupertinoIcons.chart_bar_fill, 'สถิติ', true, () {}),
+            _navItem(CupertinoIcons.location_solid, 'หน่วยเลือกตั้ง', true, () {}),
           ],
         ),
       ),

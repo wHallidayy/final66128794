@@ -7,12 +7,12 @@ import '../models/station.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/firestore_helper.dart';
 
-class AllEventsScreen extends StatefulWidget {
+class AllIncidentScreen extends StatefulWidget {
   @override
-  _AllEventsScreenState createState() => _AllEventsScreenState();
+  _AllIncidentScreenState createState() => _AllIncidentScreenState();
 }
 
-class _AllEventsScreenState extends State<AllEventsScreen> {
+class _AllIncidentScreenState extends State<AllIncidentScreen> {
   List<Report> reports = [];
   List<Report> filteredReports = [];
   final _searchController = TextEditingController();
@@ -211,13 +211,6 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '#${report.reportId.toString().padLeft(4, '0')}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.grey500,
-                    ),
-                  ),
                   const SizedBox(height: 2),
                   Text(
                     _getViolationName(report.typeId),
@@ -318,12 +311,21 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
               false,
               () => Navigator.pushReplacementNamed(context, '/home'),
             ),
-            _navItem(CupertinoIcons.list_bullet, 'เหตุการณ์', true, () {}),
             _navItem(
-              CupertinoIcons.chart_bar_fill,
-              'สถิติ',
+              CupertinoIcons.add,
+              'รายงานเหตุการณ์',
               false,
-              () => Navigator.pushReplacementNamed(context, '/stats'),
+              () => Navigator.pushReplacementNamed(context, '/select_station'),
+            ),
+            _navItem(
+              CupertinoIcons.list_bullet, 
+              'เหตุการณ์', 
+              true, () {}),
+            _navItem(
+              CupertinoIcons.location_solid,
+              'หน่วยเลือกตั้ง',
+              false,
+              () => Navigator.pushReplacementNamed(context, '/polling_station'),
             ),
           ],
         ),

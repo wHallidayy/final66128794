@@ -2,7 +2,7 @@ import '../models/report.dart';
 import '../models/station.dart';
 import '../models/violation.dart';
 
-class MockData {
+class SeedData {
   static List<Station> getStations() {
     return [
       Station(stationId: 101, stationName: 'โรงเรียนวัดพระมหาธาตุ',

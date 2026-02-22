@@ -1,9 +1,13 @@
+// - [ ] สามารถ Query นับจำนวน "การแจ้งเหตุทั้งหมดแบบ Offline" ในตาราง incident_report ได้ 1.6
+// - [ ] สามารถ Query หา "3 อันดับหน่วยเลือกตั้ง" ที่ถูกร้องเรียนมากที่สุดได้ (ใช้ SQL GROUP BY/ORDER BY) 1.7
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/report.dart';
 import '../models/violation.dart';
 import '../models/station.dart';
+import '../models/report.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/firestore_helper.dart';
 
@@ -17,6 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   Map<int, Violation> violations = {};
   Map<int, Station> stations = {};
+  List<Map<String, dynamic>> topStations = [];
+  int _offlineCount = 0;
 
   final _db = DatabaseHelper();
   final _firestore = FirestoreHelper();
@@ -46,11 +52,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final reportsData = await _db.getReports();
     final violationsData = await _db.getViolations();
     final stationsData = await _db.getStations();
+    final topStationsData = await _db.getTopComplaintedStations();
+    final offlineCountData = await _db.getOfflineReportsCount();
 
     violations = {for (var v in violationsData) v.typeId!: v};
     stations = {for (var s in stationsData) s.stationId!: s};
 
-    setState(() => reports = reportsData);
+    setState(() {
+      reports = reportsData;
+      topStations = topStationsData;
+      _offlineCount = offlineCountData;
+    });
   }
 
   String _getViolationName(int typeId) {
@@ -69,12 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return stations[stationId]?.zone ?? '-';
   }
 
-  int get highCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'High').length;
-  int get medCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'Medium').length;
-  int get lowCount =>
-      reports.where((r) => _getSeverity(r.typeId) == 'Low').length;
+  int get totalCount => reports.length;
 
   Color _sevColor(String s) => s == 'High'
       ? AppColors.red
@@ -101,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'รายงานทุจริตเลือกตั้ง',
+                  'Election Watch',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -208,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               SizedBox(width: 6),
                               Text(
-                                'สถิติวันนี้',
+                                'การแจ้งเหตุทั้งหมด',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -218,7 +225,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/stats'),
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/all_incident'),
                             child: const Text(
                               'ดูทั้งหมด',
                               style: TextStyle(
@@ -237,23 +245,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         children: [
                           _buildStatCard(
-                            '$highCount',
-                            'ร้ายแรง',
+                            '$_offlineCount',
+                            'จำนวนร้องเรียนทั้งหมด (Offline)',
                             AppColors.red,
-                            CupertinoIcons.circle_fill,
-                          ),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                            '$medCount',
-                            'ปานกลาง',
-                            AppColors.orange,
-                            CupertinoIcons.circle_fill,
-                          ),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                            '$lowCount',
-                            'เล็กน้อย',
-                            AppColors.green,
                             CupertinoIcons.circle_fill,
                           ),
                         ],
@@ -274,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               SizedBox(width: 6),
                               Text(
-                                'เหตุการณ์ล่าสุด',
+                                '3 อันดับหน่วยเลือกตั้ง',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -283,23 +277,25 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          GestureDetector(
-                            onTap: () =>
-                                Navigator.pushNamed(context, '/all_events'),
-                            child: const Text(
-                              'ดูทั้งหมด',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.red,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...reports.map((report) => _buildFeedCard(report)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: topStations.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final station = entry.value;
+                          return _buildTopStationCard(
+                            index + 1,
+                            station['station_name'] ?? '-',
+                            station['province'] ?? '-',
+                            station['complaint_count'] ?? 0,
+                          );
+                        }).toList(),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -428,6 +424,96 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildTopStationCard(
+    int rank,
+    String stationName,
+    String province,
+    int count,
+  ) {
+    Color rankColor = rank == 1
+        ? AppColors.red
+        : rank == 2
+        ? AppColors.orange
+        : AppColors.green;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: rankColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                '$rank',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  stationName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  province,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.grey500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$count ร้องเรียน',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomNav() {
     return Container(
       decoration: const BoxDecoration(
@@ -439,11 +525,14 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           children: [
             _buildNavItem(0, CupertinoIcons.house_fill, 'หน้าหลัก', () {}),
-            _buildNavItem(1, CupertinoIcons.list_bullet, 'เหตุการณ์', () {
-              Navigator.pushNamed(context, '/all_events');
+            _buildNavItem(1, CupertinoIcons.add, 'รายงานเหตุการณ์', () {
+              Navigator.pushNamed(context, '/select_station');
             }),
-            _buildNavItem(2, CupertinoIcons.chart_bar_fill, 'สถิติ', () {
-              Navigator.pushNamed(context, '/stats');
+            _buildNavItem(1, CupertinoIcons.list_bullet, 'เหตุการณ์', () {
+              Navigator.pushNamed(context, '/all_incident');
+            }),
+            _buildNavItem(2, CupertinoIcons.location_solid, 'หน่วยเลือกตั้ง', () {
+              Navigator.pushNamed(context, '/polling_station');
             }),
           ],
         ),
