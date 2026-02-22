@@ -7,17 +7,18 @@ import '../models/station.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/firestore_helper.dart';
 
-class AllEventsScreen extends StatefulWidget {
+class AllIncidentScreen extends StatefulWidget {
   @override
-  _AllEventsScreenState createState() => _AllEventsScreenState();
+  _AllIncidentScreenState createState() => _AllIncidentScreenState();
 }
 
-class _AllEventsScreenState extends State<AllEventsScreen> {
+class _AllIncidentScreenState extends State<AllIncidentScreen> {
   List<Report> reports = [];
   List<Report> filteredReports = [];
   final _searchController = TextEditingController();
   Map<int, Violation> violations = {};
   Map<int, Station> stations = {};
+  String? _selectedSeverity;
 
   final _db = DatabaseHelper();
   final _firestore = FirestoreHelper();
@@ -53,16 +54,25 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
   }
 
   void _applyFilter() {
-    final query = _searchController.text;
+    final query = _searchController.text.toLowerCase();
     filteredReports = query.isEmpty
         ? reports
         : reports
               .where(
                 (r) =>
-                    _getViolationName(r.typeId).contains(query) ||
-                    _getStationName(r.stationId).contains(query),
+                    _getViolationName(r.typeId).toLowerCase().contains(query) ||
+                    _getStationName(
+                      r.stationId,
+                    ).toLowerCase().contains(query) ||
+                    r.reporterName.toLowerCase().contains(query) ||
+                    r.description.toLowerCase().contains(query),
               )
               .toList();
+    if (_selectedSeverity != null && _selectedSeverity!.isNotEmpty) {
+      filteredReports = filteredReports
+          .where((r) => _getSeverity(r.typeId) == _selectedSeverity)
+          .toList();
+    }
   }
 
   String _getViolationName(int typeId) => violations[typeId]?.typeName ?? '-';
@@ -79,7 +89,29 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
 
   void _filterReports(String query) {
     setState(() {
-      _applyFilter();
+      _loadFilteredReports();
+    });
+  }
+
+  Future<void> _loadFilteredReports() async {
+    final searchQuery = _searchController.text.isEmpty
+        ? null
+        : _searchController.text;
+    final results = await _db.getFilteredReports(
+      searchQuery: searchQuery,
+      severity: _selectedSeverity,
+    );
+    violations = {for (var v in (await _db.getViolations())) v.typeId!: v};
+    stations = {for (var s in (await _db.getStations())) s.stationId!: s};
+    setState(() {
+      filteredReports = results;
+    });
+  }
+
+  void _onSeverityChanged(String? value) {
+    setState(() {
+      _selectedSeverity = value;
+      _loadFilteredReports();
     });
   }
 
@@ -109,41 +141,69 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             color: Colors.white,
-            child: TextField(
-              controller: _searchController,
-              onChanged: _filterReports,
-              decoration: InputDecoration(
-                hintText: 'ค้นหาเหตุการณ์...',
-                hintStyle: const TextStyle(fontSize: 14),
-                prefixIcon: const Icon(CupertinoIcons.search, size: 18),
-                filled: true,
-                fillColor: AppColors.grey100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(99),
-                  borderSide: const BorderSide(
-                    color: AppColors.grey300,
-                    width: 1.5,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _filterReports,
+                    decoration: InputDecoration(
+                      hintText: 'ค้นหาเหตุการณ์...',
+                      hintStyle: const TextStyle(fontSize: 14),
+                      prefixIcon: const Icon(CupertinoIcons.search, size: 18),
+                      filled: true,
+                      fillColor: AppColors.grey100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(99),
+                        borderSide: const BorderSide(
+                          color: AppColors.grey300,
+                          width: 1.5,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(99),
+                        borderSide: const BorderSide(
+                          color: AppColors.grey300,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(99),
+                        borderSide: const BorderSide(
+                          color: AppColors.red,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(99),
-                  borderSide: const BorderSide(
-                    color: AppColors.grey300,
-                    width: 1.5,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.grey100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.grey300, width: 1),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _selectedSeverity,
+                    hint: const Text('ทั้งหมด', style: TextStyle(fontSize: 14)),
+                    underline: const SizedBox(),
+                    isDense: true,
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('ทั้งหมด')),
+                      DropdownMenuItem(value: 'High', child: Text('High')),
+                      DropdownMenuItem(value: 'Medium', child: Text('Medium')),
+                      DropdownMenuItem(value: 'Low', child: Text('Low')),
+                    ],
+                    onChanged: _onSeverityChanged,
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(99),
-                  borderSide: const BorderSide(
-                    color: AppColors.red,
-                    width: 1.5,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
+              ],
             ),
           ),
           Expanded(
@@ -211,13 +271,6 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '#${report.reportId.toString().padLeft(4, '0')}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.grey500,
-                    ),
-                  ),
                   const SizedBox(height: 2),
                   Text(
                     _getViolationName(report.typeId),
@@ -318,12 +371,18 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
               false,
               () => Navigator.pushReplacementNamed(context, '/home'),
             ),
+            _navItem(
+              CupertinoIcons.add,
+              'รายงานเหตุการณ์',
+              false,
+              () => Navigator.pushReplacementNamed(context, '/select_station'),
+            ),
             _navItem(CupertinoIcons.list_bullet, 'เหตุการณ์', true, () {}),
             _navItem(
-              CupertinoIcons.chart_bar_fill,
-              'สถิติ',
+              CupertinoIcons.location_solid,
+              'หน่วยเลือกตั้ง',
               false,
-              () => Navigator.pushReplacementNamed(context, '/stats'),
+              () => Navigator.pushReplacementNamed(context, '/polling_station'),
             ),
           ],
         ),

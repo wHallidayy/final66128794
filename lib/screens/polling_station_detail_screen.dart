@@ -7,12 +7,14 @@ import '../models/station.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/firestore_helper.dart';
 
-class ReportDetailScreen extends StatefulWidget {
+class PollingStationDetailScreen extends StatefulWidget {
   @override
-  _ReportDetailScreenState createState() => _ReportDetailScreenState();
+  _PollingStationDetailScreenState createState() =>
+      _PollingStationDetailScreenState();
 }
 
-class _ReportDetailScreenState extends State<ReportDetailScreen> {
+class _PollingStationDetailScreenState
+    extends State<PollingStationDetailScreen> {
   Report? report;
   bool _isInitialized = false;
   Violation? violation;
